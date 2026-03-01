@@ -1,5 +1,7 @@
 const mongoose = require("mongoose");
 
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const ticketNotificationSchema = new mongoose.Schema(
   {
     subject: {
@@ -7,12 +9,13 @@ const ticketNotificationSchema = new mongoose.Schema(
       required: [true, "Subject is required"],
       trim: true,
       maxlength: 255,
+      index: true
     },
 
     content: {
       type: String,
       required: [true, "Content is required"],
-      trim: true,
+      trim: true
     },
 
     recipientEmail: {
@@ -20,47 +23,82 @@ const ticketNotificationSchema = new mongoose.Schema(
       required: [true, "Recipient email(s) required"],
       validate: {
         validator: function (emails) {
-          return emails.every((email) =>
-            /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-          );
+          return emails.every((email) => emailRegex.test(email));
         },
-        message: "One or more recipient emails are invalid",
-      },
+        message: "One or more recipient emails are invalid"
+      }
     },
 
     status: {
       type: String,
-      enum: {
-        values: ["PENDING", "SENT", "FAILED"],
-        message: "{VALUE} is not a valid notification status",
-      },
+      enum: ["PENDING", "PROCESSING", "SENT", "FAILED"],
       default: "PENDING",
-      index: true, 
+      index: true
+    },
+
+    priority: {
+      type: String,
+      enum: ["LOW", "MEDIUM", "HIGH"],
+      default: "MEDIUM",
+      index: true
     },
 
     retries: {
       type: Number,
       default: 0,
-      min: 0,
+      min: 0
+    },
+
+    nextRetryAt: {
+      type: Date,
+      default: Date.now,
+      index: true
+    },
+
+    scheduledAt: {
+      type: Date,
+      default: null,
+      index: true
     },
 
     errorMessage: {
       type: String,
-      default: null,
+      default: null
     },
 
     sentAt: {
       type: Date,
-      default: null,
+      default: null
     },
+
+    metadata: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
+    }
   },
   {
-    timestamps: true,
+    timestamps: true
   }
 );
 
 
-ticketNotificationSchema.index({ status: 1, createdAt: 1 });
+/**
+ * Compound index for worker efficiency
+ * Used in batch processing queries
+ */
+ticketNotificationSchema.index({
+  status: 1,
+  nextRetryAt: 1,
+  priority: -1,
+  createdAt: 1
+});
+
+
+ticketNotificationSchema.index({
+  scheduledAt: 1,
+  status: 1
+});
+
 
 const TicketNotification = mongoose.model(
   "TicketNotification",

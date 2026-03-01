@@ -3,8 +3,8 @@ const config = require("./server.config");
 
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
-  port: 587,
-  secure: false, // true for 465, false for 587
+  port: 465,
+  secure: true, // true for 465, false for 587
   auth: {
     user: config.mail.user,
     pass: config.mail.pass,
